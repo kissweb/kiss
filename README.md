@@ -9,6 +9,44 @@
 [![Downloads][downloads-image]][downloads-url]
 [![Gittip][gittip-image]][gittip-url]
 
+Koa Static Server - HTTP/2-ready server.
+It parses your files and HTTP/2 pushes its dependencies automatically!
+
+Supports:
+
+- Parsing HTML and CSS dependencies - JS dependencies will come with modules
+
+Caveats:
+
+- When streaming HTML, this middleware will buffer the response in memory.
+  This is required because the current dependency parser does not support streaming.
+
+## Example
+
+```js
+let koa = require('koa')
+let app = koa()
+
+let server = require('kiss')()
+// mount the public folder at root
+server.mount(__dirname + '/public')
+// expose `/client`
+server.mount('/client', __dirname + '/client')
+app.use(server)
+```
+
+## API
+
+### var server = new Kiss(options)
+
+### server.mount([prefix], folder)
+
+### server.etag(fn)
+
+### server.cacheControl(maxAge)
+
+### server.hidden(enable)
+
 [gitter-image]: https://badges.gitter.im/jonathanong/kiss.png
 [gitter-url]: https://gitter.im/jonathanong/kiss
 [npm-image]: https://img.shields.io/npm/v/kiss.svg?style=flat-square

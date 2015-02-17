@@ -24,6 +24,8 @@ function Kiss(options) {
   if (!(this instanceof Kiss)) return new Kiss(options)
 
   this.options = options || Object.create(null)
+  if (this.options.cacheControl !== undefined) this.cacheControl(this.options.cacheControl)
+  if (typeof this.options.etag === 'function') this.etag(this.options.etag)
 
   this._folders = []
 }
@@ -140,7 +142,7 @@ Kiss.prototype.use = function () {
  * Transform files.
  */
 
-Kiss.prototype.transforms = function () {
+Kiss.prototype.transform = function () {
   throw new Error('Not implemented.')
 }
 
@@ -241,6 +243,15 @@ Kiss.prototype.cacheControl = function (age) {
  */
 
 Kiss.prototype.cacheControl(31536000000)
+
+/**
+ * Enable or disable hidden file support.
+ */
+
+Kiss.prototype.hidden = function (val) {
+  this.options.hidden = !!val
+  return this
+}
 
 /**
  * Ignore missing file errors on `.stat()`
