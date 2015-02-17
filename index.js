@@ -11,6 +11,7 @@
 
 const resolve = require('resolve-path')
 const rawBody = require('raw-body')
+const mime = require('mime-types')
 const assert = require('assert')
 const path = require('path')
 const etag = require('etag')
@@ -84,8 +85,9 @@ Kiss.prototype.serve = function* (context) {
   let res = context.response
   if (stats.mtime instanceof Date) res.lastModified = stats.mtime
   if (typeof stats.size === 'number') res.length = stats.size
-  res.type = stats.type || path.extname(pathname)
-  res.etag = yield this.etag(stats)
+  res.type = stats.type || path.extname(stats.pathname)
+  res.etag = yield this._etag(stats)
+  res.set('Cache-Control', this._cacheControl)
 
   let fresh = req.fresh
   switch (req.method) {
@@ -177,19 +179,20 @@ Kiss.prototype.lookup = function* (pathname) {
  */
 
 Kiss.prototype.lookupFilename = function* (pathname) {
-  if (/\/$/.test(pathname)) pathname += 'index.html'
-
   if (!this.options.hidden && pathname.split('/').filter(Boolean).some(hasLeadingDot)) return
 
   for (let pair of this._folders) {
     let prefix = pair[0]
     if (pathname.indexOf(prefix) !== 0) continue
     let folder = pair[1]
-    let filename = resolve(folder, pathname.replace(prefix, ''))
+    let suffix = pathname.replace(prefix, '')
+    if (!suffix || /\/$/.test(suffix)) suffix += 'index.html'
+    let filename = resolve(folder, suffix)
     let stats = yield fs.lstat(filename).catch(ignoreENOENT)
     if (!stats) continue
     if (!stats.isFile()) continue
     stats.mount = pair
+    stats.type = mime.contentType(path.extname(filename))
     stats.filename = filename
     stats.pathname = pathname
     return stats
