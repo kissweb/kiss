@@ -22,7 +22,7 @@ module.exports = Kiss
 function Kiss(options) {
   if (!(this instanceof Kiss)) return new Kiss(options)
 
-  this.options = options || {}
+  this.options = options || Object.create(null)
 
   this._folders = []
 }
@@ -40,7 +40,7 @@ Kiss.prototype.constructor = Object.getPrototypeOf(function* () {}).constructor
 Kiss.prototype.call = function* (context, next) {
   yield* next
 
-  // push dependencies
+  // push dependencies if the response is already handled
   yield* this.serveDependencies(context, next)
 
   // response is already handled
@@ -48,14 +48,16 @@ Kiss.prototype.call = function* (context, next) {
   if (res.body || res.status !== 404) return
 
   // serve the response
-  yield* this.serve(context, next)
+  let served = yield* this.serve(context, next)
+  // push the dependencies
+  if (served !== false) yield* this.serveDependencies(context, next)
 }
 
 /**
  * Push the current request's dependencies.
  */
 
-Kiss.prototype.serveDependencies = function* (context, next) {
+Kiss.prototype.serveDependencies = function* (context) {
   let req = context.request
   let res = context.response
   let type = req.is('html', 'css', 'js')
@@ -73,11 +75,11 @@ Kiss.prototype.serveDependencies = function* (context, next) {
  * Note: assumes you're using your own compression middleware.
  */
 
-Kiss.prototype.serve = function* (context, next) {
+Kiss.prototype.serve = function* (context) {
   let req = context.request
   let pathname = req.path
   let stats = yield* this.lookup(pathname)
-  if (!stats) return yield* next
+  if (!stats) return false
 
   let res = context.response
   if (stats.mtime instanceof Date) res.lastModified = stats.mtime
@@ -87,8 +89,13 @@ Kiss.prototype.serve = function* (context, next) {
 
   let fresh = req.fresh
   switch (req.method) {
-    case 'HEAD': return res.status = fresh ? 304 : 200
-    case 'GET': break
+    case 'HEAD':
+      res.status = fresh ? 304 : 200
+      return
+    case 'GET':
+      if (fresh) return res.status = 304
+      res.body = fs.createReadStream(stats.filename)
+      return
     case 'OPTIONS':
       res.set('Allow', 'OPTIONS,HEAD,GET')
       res.status = 204
@@ -96,24 +103,7 @@ Kiss.prototype.serve = function* (context, next) {
     default:
       res.set('Allow', 'OPTIONS,HEAD,GET')
       res.status = 405
-      return
   }
-
-  if (fresh) return res.status = 304
-
-  // push dependencies
-  let type = res.is('html', 'css', 'js')
-  if (type) {
-    // TODO: cache this in production or something
-    let body = res.body = stats.body != null
-      ? stats.body
-      : (yield fs.readFile(stats.filename, 'utf8'))
-    yield this.pushDependencies(stats.pathname, type, body)
-  }
-
-  res.body = res.body || stats.body != null
-    ? stats.body
-    : fs.createReadStream(stats.filename)
 }
 
 /**
@@ -132,7 +122,7 @@ Kiss.prototype.mount = function (prefix, folder) {
   assert(prefix[0] === '/', 'Mounted paths must begin with a `/`.')
   if (!/\/$/.test(prefix)) prefix += '/'
 
-  this._folders.push(prefix, path.resolve(folder))
+  this._folders.push([prefix, path.resolve(folder)])
   return this
 }
 
@@ -141,6 +131,14 @@ Kiss.prototype.mount = function (prefix, folder) {
  */
 
 Kiss.prototype.use = function () {
+  throw new Error('Not implemented.')
+}
+
+/**
+ * Transform files.
+ */
+
+Kiss.prototype.transforms = function () {
   throw new Error('Not implemented.')
 }
 
@@ -164,10 +162,25 @@ Kiss.prototype.define = function () {
 }
 
 /**
- * Lookup a web path such as `/file/index.js` based on all the support paths.
+ * Lookup function.
+ * TODO: lookup middleware
  */
 
 Kiss.prototype.lookup = function* (pathname) {
+  var stats = yield* this.lookupFilename(pathname)
+  if (stats) return stats
+}
+
+/**
+ * Lookup a web path such as `/file/index.js` based on all the support paths.
+ * This is the default lookup function.
+ */
+
+Kiss.prototype.lookupFilename = function* (pathname) {
+  if (/\/$/.test(pathname)) pathname += 'index.html'
+
+  if (!this.options.hidden && pathname.split('/').filter(Boolean).some(hasLeadingDot)) return
+
   for (let pair of this._folders) {
     let prefix = pair[0]
     if (pathname.indexOf(prefix) !== 0) continue
@@ -232,4 +245,12 @@ Kiss.prototype.cacheControl(31536000000)
 
 function ignoreENOENT(err) {
   if (err.code !== 'ENOENT') throw err
+}
+
+/**
+ * Check if a filename has a leading dot file.
+ */
+
+function hasLeadingDot(x) {
+  return /^\./.test(x)
 }

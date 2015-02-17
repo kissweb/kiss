@@ -7,12 +7,14 @@
   "repository": "jonathanong/kiss",
   "dependencies": {
     "etag": "^1.5.1",
+    "ms": "^0.7.0",
     "mz": "^1.3.0",
     "raw-body": "^1.3.3",
     "resolve-path": "^1.2.1"
   },
   "devDependencies": {
-    "istanbul": "0",
+    "co": "^4.4.0",
+    "istanbul-harmony": "0",
     "mocha": "2",
     "standardberry": "^1.0.0"
   },
