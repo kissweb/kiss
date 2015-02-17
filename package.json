@@ -6,8 +6,11 @@
   "license": "MIT",
   "repository": "jonathanong/kiss",
   "dependencies": {
+    "commander": "^2.6.0",
     "etag": "^1.5.1",
     "koa": "0",
+    "koa-compress": "^1.0.8",
+    "koa-logger": "^1.2.2",
     "mime-types": "^2.0.9",
     "ms": "^0.7.0",
     "mz": "^1.3.0",
@@ -27,5 +30,16 @@
     "test-cov": "istanbul cover node_modules/mocha/bin/_mocha -- --reporter dot",
     "test-travis": "standardberry index.js && istanbul cover node_modules/mocha/bin/_mocha --report lcovonly -- --reporter dot"
   },
-  "keywords": []
+  "keywords": [
+    "koa",
+    "static",
+    "server",
+    "file",
+    "http2",
+    "push"
+  ],
+  "files": [
+    "index.js"
+  ],
+  "bin": "bin/kiss"
 }

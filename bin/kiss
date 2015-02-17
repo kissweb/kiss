@@ -1,0 +1,23 @@
+#!/usr/bin/env node
+'use strict'
+
+let program = require('commander')
+  .usage('<folder>')
+  .option('-p, --port <number>', 'port, defaulting to 6000')
+
+program.parse(process.argv)
+
+let path = require('path')
+let app = require('koa')()
+app.use(require('koa-compress')())
+app.use(require('koa-logger')())
+
+let serve = require('..')()
+serve.mount(path.resolve(program.args[0] || ''))
+app.use(serve)
+
+let port = program.port || 6000
+app.listen(port, function (err) {
+  if (err) throw err
+  console.log('KISS server listening on port %s.', port)
+})
