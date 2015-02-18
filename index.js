@@ -1,14 +1,5 @@
 'use strict'
 
-/**
- * TODO:
- *
- *   - toggle hidden file support
- *   - CORS
- *   - middleware
- *
- */
-
 const resolve = require('resolve-path')
 const rawBody = require('raw-body')
 const mime = require('mime-types')
@@ -32,50 +23,63 @@ function Kiss(options) {
 
 /**
  * Pretend Kiss is a generator function so `app.use()` works.
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/GeneratorFunction
+ * Can be removed when ES7 async functions are merged in.
  */
 
 Kiss.prototype.constructor = Object.getPrototypeOf(function* () {}).constructor
 
 /**
- * Support .call().
+ * Support .call() for middleware dispatchers.
  */
 
 Kiss.prototype.call = function* (context, next) {
   yield* next
 
-  // push dependencies if the response is already handled
-  yield* this.serveDependencies(context, next)
-
-  // response is already handled
   let res = context.response
+
+  // push dependencies if the response is already handled
+  if (res.body != null) yield* this.serveDependencies(context, next)
+
+  // return if response is already handled
   if (res.body || res.status !== 404) return
 
-  // serve the response
+  // try to serve the response
   let served = yield* this.serve(context, next)
-  // push the dependencies
+  // push the dependencies if the response was served
   if (served !== false) yield* this.serveDependencies(context, next)
 }
 
 /**
  * Push the current request's dependencies.
+ * Note that if the response is currently streamed,
+ * which is default for files,
+ * the entire stream will be buffered in memory
  */
 
 Kiss.prototype.serveDependencies = function* (context) {
+  // http2 push is not supported
+  if (!context.req.isSpdy) return
+
+  // not a supported dependency type
   let req = context.request
-  let res = context.response
   let type = req.is('html', 'css', 'js')
   if (!type) return
 
+  // buffer the response
+  let res = context.response
   let body = res.body
-  if (body == null) return // why would this happen?
   if (Buffer.isBuffer(body)) body = body.toString()
-  if (body._readableState) body = yield rawBody(body, { encoding: 'utf8' })
+  if (!body) return // empty strings or buffers
+  if (body._readableState) body = res.body = yield rawBody(body, { encoding: 'utf8' })
+  if (!body) return // empty streams
   yield this.pushDependencies(req.path, type, body)
 }
 
 /**
  * Serve a file as the response to the request.
  * Note: assumes you're using your own compression middleware.
+ * TODO: maybe handle compression here
  */
 
 Kiss.prototype.serve = function* (context) {
@@ -83,6 +87,20 @@ Kiss.prototype.serve = function* (context) {
   let pathname = req.path
   let stats = yield* this.lookup(pathname)
   if (!stats) return false
+
+  switch (req.method) {
+    case 'HEAD':
+    case 'GET':
+      break
+    case 'OPTIONS':
+      res.set('Allow', 'OPTIONS,HEAD,GET')
+      res.status = 204
+      return
+    default:
+      res.set('Allow', 'OPTIONS,HEAD,GET')
+      res.status = 405
+      return
+  }
 
   let res = context.response
   if (stats.mtime instanceof Date) res.lastModified = stats.mtime
@@ -100,20 +118,13 @@ Kiss.prototype.serve = function* (context) {
       if (fresh) return res.status = 304
       res.body = fs.createReadStream(stats.filename)
       return
-    case 'OPTIONS':
-      res.set('Allow', 'OPTIONS,HEAD,GET')
-      res.status = 204
-      return
-    default:
-      res.set('Allow', 'OPTIONS,HEAD,GET')
-      res.status = 405
   }
 }
 
 /**
  * Mount a path as a static server.
  * Like Express's `.use()`, except `.use()` in this instance
- * will be reserved for plugins.
+ * will be reserved for middleware.
  */
 
 Kiss.prototype.mount = function (prefix, folder) {
@@ -131,7 +142,7 @@ Kiss.prototype.mount = function (prefix, folder) {
 }
 
 /**
- * Use plugins and middleware for this server.
+ * Use middleware for this server.
  */
 
 Kiss.prototype.use = function () {
@@ -192,6 +203,7 @@ Kiss.prototype.lookupFilename = function* (pathname) {
     let filename = resolve(folder, suffix)
     let stats = yield fs.lstat(filename).catch(ignoreENOENT)
     if (!stats) continue
+    // TODO: handle directories?
     if (!stats.isFile()) continue
     stats.mount = pair
     stats.type = mime.contentType(path.extname(filename))
@@ -216,6 +228,7 @@ Kiss.prototype.etag = function (fn) {
 
 /**
  * Set the default etag function.
+ * Requires `stat.mtime` and `stat.size`.
  */
 
 Kiss.prototype.etag(function (stats) {
@@ -239,7 +252,7 @@ Kiss.prototype.cacheControl = function (age) {
 }
 
 /**
- * Set the default cache control.
+ * Set the default cache control, which is about a year.
  */
 
 Kiss.prototype.cacheControl(31536000000)
@@ -262,7 +275,8 @@ function ignoreENOENT(err) {
 }
 
 /**
- * Check if a filename has a leading dot file.
+ * Check if a string has a leading dot,
+ * specifically for ignoring parts of a path.
  */
 
 function hasLeadingDot(x) {

@@ -9,12 +9,12 @@
 [![Downloads][downloads-image]][downloads-url]
 [![Gittip][gittip-image]][gittip-url]
 
-Koa Static Server - HTTP/2-ready server.
+Koa Static Server - HTTP/2 static server.
 It parses your files and HTTP/2 pushes its dependencies automatically!
 
 Supports:
 
-- Parsing HTML and CSS dependencies - JS dependencies will come with modules
+- Parsing HTML and CSS dependencies - JS dependencies will come with modules.
 
 Caveats:
 
