@@ -62,12 +62,11 @@ Kiss.prototype.serveDependencies = function* (context) {
   if (!context.req.isSpdy) return
 
   // not a supported dependency type
-  let req = context.request
-  let type = req.is('html', 'css', 'js')
+  let res = context.response
+  let type = res.is('html', 'css', 'js')
   if (!type) return
 
   // buffer the response
-  let res = context.response
   let body = res.body
   if (Buffer.isBuffer(body)) body = body.toString()
   if (!body) return // empty strings or buffers
@@ -201,7 +200,8 @@ Kiss.prototype.lookupFilename = function* (pathname) {
     let suffix = pathname.replace(prefix, '')
     if (!suffix || /\/$/.test(suffix)) suffix += 'index.html'
     let filename = resolve(folder, suffix)
-    let stats = yield fs.lstat(filename).catch(ignoreENOENT)
+    // TODO: make sure symlinked folders work
+    let stats = yield fs.stat(filename).catch(ignoreENOENT)
     if (!stats) continue
     // TODO: handle directories?
     if (!stats.isFile()) continue
