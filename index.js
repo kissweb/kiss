@@ -61,7 +61,8 @@ Kiss.prototype.call = function* (context, next) {
 
 Kiss.prototype.serveDependencies = function* (context) {
   // http2 push is not supported
-  if (!context.req.isSpdy) return
+  let req = context.req
+  if (!req.isSpdy) return
 
   // not a supported dependency type
   let res = context.response

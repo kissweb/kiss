@@ -15,6 +15,8 @@ app.use(function* (next) {
   yield* next
 })
 
+app.on('error', function () {})
+
 var server = app.callback()
 
 describe('Serve', function () {
