@@ -17,6 +17,7 @@ function Kiss(options) {
   this.options = options || Object.create(null)
   if (this.options.cacheControl !== undefined) this.cacheControl(this.options.cacheControl)
   if (typeof this.options.etag === 'function') this.etag(this.options.etag)
+  if (this.options.hidden !== undefined) this.hidden(this.options.hidden)
 
   this._folders = []
 }
@@ -27,6 +28,7 @@ function Kiss(options) {
  * Can be removed when ES7 async functions are merged in.
  */
 
+/* istanbul ignore next */
 Kiss.prototype.constructor = Object.getPrototypeOf(function* () {}).constructor
 
 /**
@@ -87,6 +89,7 @@ Kiss.prototype.serve = function* (context) {
   let stats = yield* this.lookup(pathname)
   if (!stats) return false
 
+  let res = context.response
   switch (req.method) {
     case 'HEAD':
     case 'GET':
@@ -101,7 +104,7 @@ Kiss.prototype.serve = function* (context) {
       return
   }
 
-  let res = context.response
+  res.status = 200
   if (stats.mtime instanceof Date) res.lastModified = stats.mtime
   if (typeof stats.size === 'number') res.length = stats.size
   res.type = stats.type || path.extname(stats.pathname)
@@ -111,7 +114,7 @@ Kiss.prototype.serve = function* (context) {
   let fresh = req.fresh
   switch (req.method) {
     case 'HEAD':
-      res.status = fresh ? 304 : 200
+      if (fresh) res.status = 304
       return
     case 'GET':
       if (fresh) return res.status = 304
@@ -144,6 +147,7 @@ Kiss.prototype.mount = function (prefix, folder) {
  * Use middleware for this server.
  */
 
+/* istanbul ignore next */
 Kiss.prototype.use = function () {
   throw new Error('Not implemented.')
 }
@@ -152,6 +156,7 @@ Kiss.prototype.use = function () {
  * Transform files.
  */
 
+/* istanbul ignore next */
 Kiss.prototype.transform = function () {
   throw new Error('Not implemented.')
 }
@@ -162,6 +167,7 @@ Kiss.prototype.transform = function () {
  * Should support both files and folders.
  */
 
+/* istanbul ignore next */
 Kiss.prototype.alias = function () {
   throw new Error('Not implemented.')
 }
@@ -171,6 +177,7 @@ Kiss.prototype.alias = function () {
  * Ex. kiss.define('/polyfill.js', (context, next) -> [stats])
  */
 
+/* istanbul ignore next */
 Kiss.prototype.define = function () {
   throw new Error('Not implemented.')
 }
@@ -191,6 +198,7 @@ Kiss.prototype.lookup = function* (pathname) {
  */
 
 Kiss.prototype.lookupFilename = function* (pathname) {
+  // if options.hidden, leading dots anywhere in the path can not be handled
   if (!this.options.hidden && pathname.split('/').filter(Boolean).some(hasLeadingDot)) return
 
   for (let pair of this._folders) {
@@ -270,6 +278,7 @@ Kiss.prototype.hidden = function (val) {
  * Ignore missing file errors on `.stat()`
  */
 
+/* istanbul ignore next */
 function ignoreENOENT(err) {
   if (err.code !== 'ENOENT') throw err
 }
