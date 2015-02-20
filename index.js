@@ -2,11 +2,14 @@
 
 const resolve = require('resolve-path')
 const rawBody = require('raw-body')
+const parse = require('deps-parse')
 const mime = require('mime-types')
+const spdy = require('spdy-push')
 const assert = require('assert')
 const path = require('path')
 const etag = require('etag')
 const fs = require('mz/fs')
+const url = require('url')
 const ms = require('ms')
 
 module.exports = Kiss
@@ -219,6 +222,50 @@ Kiss.prototype.lookupFilename = function* (pathname) {
     stats.filename = filename
     stats.pathname = pathname
     return stats
+  }
+}
+
+/**
+ * Push dependencies.
+ */
+
+Kiss.prototype.pushDependencies = function* (pathname, type, body) {
+  assert(typeof body === 'string')
+  if (type === 'js') return // not supported
+  if (type === 'css') {
+    let deps = yield parse.css(body)
+    for (let dep_css of deps.imports) {
+      // don't push dependencies with media queries as they are highly conditional
+      if (dep_css.media) continue
+      // push dependency
+      // push its dependency
+    }
+    // NOTE: we do not push url()s because they are highly conditional
+    // as well as not critical for rendering
+    return
+  }
+
+  // html
+  let deps = yield parse.html(body)
+  for (let node of deps) {
+    switch (node.type) {
+      // not supported
+      case 'module': continue
+      case 'script':
+        if (node.inline) continue
+        // push dependency
+        break
+      case 'stylesheet':
+        // don't push style sheets with media queries
+        if (node.attrs.media) continue
+        // push dependency
+        // push its dependencies
+        break
+      case 'import':
+        // push dependency
+        // push its dependencies
+        break
+    }
   }
 }
 
