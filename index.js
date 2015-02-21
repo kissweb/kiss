@@ -90,7 +90,7 @@ Kiss.prototype.serveDependencies = function* (context) {
 Kiss.prototype.serve = function* (context) {
   let req = context.request
   let pathname = req.path
-  let stats = yield* this.lookup(pathname)
+  let stats = yield* this.lookup('/', pathname)
   if (!stats) return false
 
   let res = context.response
@@ -191,8 +191,8 @@ Kiss.prototype.define = function () {
  * TODO: lookup middleware
  */
 
-Kiss.prototype.lookup = function* (pathname) {
-  var stats = yield* this.lookupFilename(pathname)
+Kiss.prototype.lookup = function* (basepath, pathname) {
+  var stats = yield* this.lookupFilename(url.resolve(basepath, pathname))
   if (stats) return stats
 }
 
