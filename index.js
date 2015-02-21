@@ -248,7 +248,7 @@ Kiss.prototype.lookup = function* (basepath, pathname) {
     if (stats) return stats
   }
 
-  var stats = yield* this.lookupFilename(url.resolve(basepath, pathname))
+  let stats = yield* this.lookupFilename(url.resolve(basepath, pathname))
   if (stats) return stats
 }
 
