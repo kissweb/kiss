@@ -69,15 +69,11 @@ Kiss.prototype.serveDependencies = function* (context) {
 
   // not a supported dependency type
   let res = context.response
-  let type = res.is('html', 'css', 'js')
+  let type = res.is('html', 'css' /*, 'js' */)
   if (!type) return
 
   // buffer the response
-  let body = res.body
-  if (Buffer.isBuffer(body)) body = body.toString()
-  if (!body) return // empty strings or buffers
-  if (body._readableState) body = res.body = yield rawBody(body, { encoding: 'utf8' })
-  if (!body) return // empty streams
+  let body = res.body = yield* bodyToString(res.body)
   yield this.pushDependencies(req.path, type, body)
 }
 
@@ -122,9 +118,63 @@ Kiss.prototype.serve = function* (context) {
       return
     case 'GET':
       if (fresh) return res.status = 304
-      res.body = fs.createReadStream(stats.filename)
+      res.body = 'body' in stats
+        ? stats.body
+        : fs.createReadStream(stats.filename)
       return
   }
+}
+
+/**
+ * Push a dependency using SPDY.
+ */
+
+Kiss.prototype.spdyPush = function* (context, stats) {
+  if (!context.res.isSpdy) return
+
+  let options = {
+    path: stats.pathname,
+    priority: this.priority(stats),
+    headers: {
+      'cache-control': this._cacheControl,
+      'etag': yield this._etag(stats),
+    }
+  }
+
+  if (stats.mtime instanceof Date)
+    options.headers['last-modified'] = stats.mtime.toUTCString()
+  if (stats.type)
+    options.headers['content-type'] = stats.type
+
+  let etag = yield this._etag(stats)
+  if (etag)
+  if (!/^(W\/)?"/.test(etag))
+    options.headers.etag = '"' + etag + '"'
+
+  if ('body' in stats) {
+    options.body = stats.body
+  } else if (stats.filename) {
+    options.filename = stats.filename
+  }
+
+  let promises = [
+    spdy(context.res).push(options)
+  ]
+
+  switch (stats.ext) {
+    case 'html':
+    case 'css':
+    case 'js':
+      if (options.filename) {
+        options.body = yield fs.readFile(options.filename, 'utf8')
+        delete options.filename
+      }
+      options.body = yield* bodyToString(options.body)
+      promises.push(this.pushDependencies(stats.pathname, stats.ext, options.body))
+      break
+  }
+
+  yield promises
 }
 
 /**
@@ -218,6 +268,7 @@ Kiss.prototype.lookupFilename = function* (pathname) {
     // TODO: handle directories?
     if (!stats.isFile()) continue
     stats.mount = pair
+    stats.ext = mime.extension(path.extname(filename))
     stats.type = mime.contentType(path.extname(filename))
     stats.filename = filename
     stats.pathname = pathname
@@ -323,6 +374,20 @@ Kiss.prototype.hidden = function (val) {
 }
 
 /**
+ * Get the priority of a file depending on the type of file.
+ */
+
+Kiss.prototype.priority = function (stats) {
+  // remove the charset or anything
+  switch (stats.ext) {
+    case 'text/html': return 3
+    case 'text/css': return 4
+    case 'text/js': return 5
+  }
+  return 7
+}
+
+/**
  * Ignore missing file errors on `.stat()`
  */
 
@@ -338,4 +403,15 @@ function ignoreENOENT(err) {
 
 function hasLeadingDot(x) {
   return /^\./.test(x)
+}
+
+/**
+ * Convert a body to a string.
+ */
+
+function* bodyToString(body) {
+  if (typeof body === 'string') return body
+  if (Buffer.isBuffer(body)) return body.toString()
+  if (body._readableState) return yield rawBody(body, { encoding: 'utf8' })
+  throw new Error('wtf')
 }
