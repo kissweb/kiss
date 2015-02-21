@@ -23,6 +23,8 @@ function Kiss(options) {
   if (this.options.hidden !== undefined) this.hidden(this.options.hidden)
 
   this._folders = []
+  this._middleware = []
+  this._transforms = []
 }
 
 /**
@@ -201,9 +203,9 @@ Kiss.prototype.mount = function (prefix, folder) {
  * Use middleware for this server.
  */
 
-/* istanbul ignore next */
-Kiss.prototype.use = function () {
-  throw new Error('Not implemented.')
+Kiss.prototype.use = function (fn) {
+  this._middleware.push(fn)
+  return this
 }
 
 /**
@@ -238,10 +240,14 @@ Kiss.prototype.define = function () {
 
 /**
  * Lookup function.
- * TODO: lookup middleware
  */
 
 Kiss.prototype.lookup = function* (basepath, pathname) {
+  for (let fn of this._middleware) {
+    let stats = yield fn.call(this, basepath, pathname)
+    if (stats) return stats
+  }
+
   var stats = yield* this.lookupFilename(url.resolve(basepath, pathname))
   if (stats) return stats
 }
