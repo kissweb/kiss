@@ -135,6 +135,6 @@ describe('malicious paths', function () {
   it('//', function (done) {
     request(server)
     .get('//asdfasdffs')
-    .expect(400, done)
+    .expect(404, done)
   })
 })

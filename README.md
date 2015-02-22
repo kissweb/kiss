@@ -10,13 +10,10 @@
 [![Gittip][gittip-image]][gittip-url]
 
 Koa Static Server - HTTP/2 static server.
+The goal for this static server is to keep web development simpler!
 It parses your files and HTTP/2 pushes its dependencies automatically!
-
-Supports:
-
-- Parsing HTML and CSS dependencies - JS dependencies will come with modules.
-
-Caveats:
+It is also extensible with the end-goal of integrating
+polyfilling and transpilation so that you don't have to worry about that in a build step.
 
 - When streaming HTML, this middleware will buffer the response in memory.
   This is required because the current dependency parser does not support streaming.

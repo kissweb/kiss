@@ -7,7 +7,7 @@
   "repository": "jonathanong/kiss",
   "dependencies": {
     "commander": "^2.6.0",
-    "deps-parse": "^2.1.1",
+    "deps-parse": "^3.0.0",
     "etag": "^1.5.1",
     "koa": "0",
     "koa-compress": "^1.0.8",

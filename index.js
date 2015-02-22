@@ -76,7 +76,7 @@ Kiss.prototype.serveDependencies = function* (context) {
 
   // buffer the response
   let body = res.body = yield* bodyToString(res.body)
-  yield this.pushDependencies(req.path, type, body)
+  yield* this.pushDependencies(context, req.path, type, body)
 }
 
 /**
@@ -88,7 +88,7 @@ Kiss.prototype.serveDependencies = function* (context) {
 Kiss.prototype.serve = function* (context) {
   let req = context.request
   let pathname = req.path
-  let stats = yield* this.lookup('/', pathname)
+  let stats = yield* this.lookup(context, '/', pathname)
   if (!stats) return false
 
   let res = context.response
@@ -114,17 +114,15 @@ Kiss.prototype.serve = function* (context) {
   res.set('Cache-Control', this._cacheControl)
 
   let fresh = req.fresh
-  switch (req.method) {
-    case 'HEAD':
-      if (fresh) res.status = 304
-      return
-    case 'GET':
-      if (fresh) return res.status = 304
-      res.body = 'body' in stats
-        ? stats.body
-        : fs.createReadStream(stats.filename)
-      return
+  if (req.method === 'HEAD') {
+    if (fresh) res.status = 304
+    return
   }
+
+  if (fresh) return res.status = 304
+  res.body = 'body' in stats
+    ? stats.body
+    : fs.createReadStream(stats.filename)
 }
 
 /**
@@ -159,23 +157,28 @@ Kiss.prototype.spdyPush = function* (context, stats) {
     options.filename = stats.filename
   }
 
+  assert('body' in options || 'filename' in options)
+
   let promises = [
     spdy(context.res).push(options)
   ]
 
+  // push this file's dependencies
   switch (stats.ext) {
     case 'html':
     case 'css':
     case 'js':
+      // buffer the file in memory if necessary
       if (options.filename) {
         options.body = yield fs.readFile(options.filename, 'utf8')
         delete options.filename
       }
       options.body = yield* bodyToString(options.body)
-      promises.push(this.pushDependencies(stats.pathname, stats.ext, options.body))
+      promises.push(this.pushDependencies(context, stats.pathname, stats.ext, options.body))
       break
   }
 
+  // push this file and its dependencies in parallel
   yield promises
 }
 
@@ -242,14 +245,16 @@ Kiss.prototype.define = function () {
  * Lookup function.
  */
 
-Kiss.prototype.lookup = function* (basepath, pathname) {
+Kiss.prototype.lookup = function* (context, basepath, pathname) {
   for (let fn of this._middleware) {
     let stats = yield fn.call(this, basepath, pathname)
     if (stats) return stats
   }
 
-  let stats = yield* this.lookupFilename(url.resolve(basepath, pathname))
-  if (stats) return stats
+  // if all middleware fails, use local file lookups
+  // it does not support absolute URLs, obviously
+  if (~pathname.indexOf('://') || !pathname.indexOf('//')) return
+  return yield* this.lookupFilename(url.resolve(basepath, pathname))
 }
 
 /**
@@ -266,6 +271,7 @@ Kiss.prototype.lookupFilename = function* (pathname) {
     if (pathname.indexOf(prefix) !== 0) continue
     let folder = pair[1]
     let suffix = pathname.replace(prefix, '')
+    if (suffix[0] === '/') continue
     if (!suffix || /\/$/.test(suffix)) suffix += 'index.html'
     let filename = resolve(folder, suffix)
     // TODO: make sure symlinked folders work
@@ -286,44 +292,61 @@ Kiss.prototype.lookupFilename = function* (pathname) {
  * Push dependencies.
  */
 
-Kiss.prototype.pushDependencies = function* (pathname, type, body) {
+Kiss.prototype.pushDependencies = function* (context, pathname, type, body) {
   assert(typeof body === 'string')
-  if (type === 'js') return // not supported
-  if (type === 'css') {
-    let deps = yield parse.css(body)
-    for (let dep_css of deps.imports) {
-      // don't push dependencies with media queries as they are highly conditional
-      if (dep_css.media) continue
-      // push dependency
-      // push its dependency
-    }
-    // NOTE: we do not push url()s because they are highly conditional
-    // as well as not critical for rendering
+
+  // js
+  if (type === 'js') {
+    let deps = yield parse.js(body)
+    if (!deps.length) return
+    yield deps.map(function* (name) {
+      let stats = yield* this.lookup(context, pathname, name)
+      if (stats) yield* this.spdyPush(context, stats)
+    }, this)
     return
   }
 
+  // css
+  if (type === 'css') {
+    let deps = yield parse.css(body)
+    // note: we do not push urls() because they are conditional
+    if (!deps.imports) return
+    yield deps.imports.map(function* (dep) {
+      // don't push dependencies with media queries as they are conditional
+      if (dep.media) return
+      let stats = yield* this.lookup(context, pathname, dep.path)
+      if (stats) yield* this.spdyPush(context, stats)
+    }, this)
+    return
+  }
+
+  assert(type === 'html')
+
   // html
   let deps = yield parse.html(body)
-  for (let node of deps) {
+  if (!deps.length) return
+  yield deps.map(function* (node) {
+    let stats
     switch (node.type) {
-      // not supported
-      case 'module': continue
+      // TODO: parse inline module dependencies
+      case 'module':
       case 'script':
-        if (node.inline) continue
-        // push dependency
+        if (node.inline) return
+        stats = yield* this.lookup(context, pathname, node.path)
         break
+      // TODO: parse inline style imports
+      case 'style': return
       case 'stylesheet':
-        // don't push style sheets with media queries
-        if (node.attrs.media) continue
-        // push dependency
-        // push its dependencies
+        // don't push style sheets with media queries as they are conditional
+        if (node.attrs.media) return
+        stats = yield* this.lookup(context, pathname, node.path)
         break
       case 'import':
-        // push dependency
-        // push its dependencies
+        stats = yield* this.lookup(context, pathname, node.path)
         break
     }
-  }
+    if (stats) yield* this.spdyPush(context, stats)
+  }, this)
 }
 
 /**
@@ -419,5 +442,6 @@ function* bodyToString(body) {
   if (typeof body === 'string') return body
   if (Buffer.isBuffer(body)) return body.toString()
   if (body._readableState) return yield rawBody(body, { encoding: 'utf8' })
-  throw new Error('wtf')
+  /* istanbul ignore next */
+  throw new Error('Could not convert body to string.')
 }
