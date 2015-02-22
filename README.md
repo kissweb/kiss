@@ -9,14 +9,58 @@
 [![Downloads][downloads-image]][downloads-url]
 [![Gittip][gittip-image]][gittip-url]
 
-Koa Static Server - HTTP/2 static server.
-The goal for this static server is to keep web development simpler!
-It parses your files and HTTP/2 pushes its dependencies automatically!
-It is also extensible with the end-goal of integrating
-polyfilling and transpilation so that you don't have to worry about that in a build step.
+Keeping web development simple with a Koa-based HTTP/2 static server.
+This server seamlessly HTTP/2 pushes all your files dependencies!
+You never have to explicitly `PUSH` assets to the client (unless you want to).
 
-- When streaming HTML, this middleware will buffer the response in memory.
-  This is required because the current dependency parser does not support streaming.
+KISS hopes to simplify web development further by being extensible.
+By integrating polyfilling and transpilation and, eventually, package management,
+your build system will eventually become nonexistent.
+
+## Supported Dependency Types
+
+The following types of dependencies are parsed and HTTP pushed:
+
+HTML:
+
+- `<script src>` - scripts
+- `<module src>` - modules
+- `<link rel="stylesheet">` - stylesheets
+- `<link rel="import">` - HTML imports
+
+CSS:
+
+- `@import "";` - CSS imports
+
+JS:
+
+- `import ''` - module imports
+
+Dependencies that are conditional are not pushed automatically.
+If the client has a good change of not using the dependency at all,
+extra latency is considered acceptable.
+Some examples are:
+
+- CSS `url()` dependencies, many of which are wrapped in `@media` or `@support` queries.
+- CSS dependences with media queries including `<link rel="stylesheet" media="">` and `@import "" screen;`.
+- JS `System.import()`s, which are always dynamic and conditional
+
+## Caveats
+
+KISS only supports iojs.
+
+iojs does not yet support HTTP2.
+The current implementation uses [spdy](https://github.com/indutny/node-spdy),
+which will most likely be the precursor for iojs' HTTP2 implementation.
+SPDY is sufficient for testing and educational purposes.
+
+When streaming HTML, this middleware will buffer the response in memory.
+This is required because the current dependency parser does not support streaming (and probably never will).
+This is not a big issue as you probably shouldn't be using streaming templating systems anyways.
+
+KISS is not production-ready and will most likely not be production-ready for a while.
+KISS will not attempt to become production-ready until load balancers such as nginx
+support HTTP2 push from upstream servers.
 
 ## Example
 
@@ -32,7 +76,32 @@ server.mount('/client', __dirname + '/client')
 app.use(server)
 ```
 
-## API
+## kiss(1)
+
+KISS comes with a CLI for serving with a hope of replacing [serve](https://www.npmjs.com/package/serve).
+To install:
+
+```bash
+npm i -g kiss
+```
+
+And to run:
+
+```bash
+kiss .
+```
+
+Note that, by default, KISS uses a self-signed certificate.
+This is required as many browsers do not support HTTP2 without SSL.
+Acknowledge this from your browser to continue working.
+
+Type the following for more information:
+
+```bash
+kiss --help
+```
+
+## JS API
 
 ### var server = new Kiss(options)
 
