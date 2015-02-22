@@ -16,8 +16,16 @@ let serve = require('..')()
 serve.mount(path.resolve(program.args[0] || ''))
 app.use(serve)
 
-let port = program.port || 6000
-app.listen(port, function (err) {
+let spdy = require('spdy')
+let port = program.port || 4400
+let fn = app.callback()
+
+module.exports = spdy.createServer({
+  plain: true,
+  ssl: false,
+})
+.on('request', fn)
+.listen(port, function (err) {
   if (err) throw err
   console.log('KISS server listening on port %s.', port)
 })

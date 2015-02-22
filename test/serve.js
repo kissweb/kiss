@@ -9,7 +9,7 @@ var Serve = require('..')
 
 var app = koa()
 
-app.use(Serve().mount(path.join(__dirname, 'fixtures')))
+app.use(Serve().mount(path.join(__dirname, 'fixtures-lookup')))
 app.use(function* (next) {
   if (this.path === '/test') return this.status = 204
   yield* next
