@@ -66,10 +66,10 @@ Kiss.prototype.call = function* (context, next) {
 
 Kiss.prototype.serveDependencies = function* (context) {
   // http2 push is not supported
-  let req = context.req
-  if (!req.isSpdy) return
+  if (!context.req.isSpdy) return
 
   // not a supported dependency type
+  let req = context.request
   let res = context.response
   let type = res.is('html', 'css' /*, 'js' */)
   if (!type) return
@@ -279,8 +279,7 @@ Kiss.prototype.lookupFilename = function* (pathname) {
     if (!stats) continue
     // TODO: handle directories?
     if (!stats.isFile()) continue
-    stats.mount = pair
-    stats.ext = mime.extension(path.extname(filename))
+    stats.ext = mime.extension(mime.lookup(path.extname(filename)))
     stats.type = mime.contentType(path.extname(filename))
     stats.filename = filename
     stats.pathname = pathname
@@ -293,6 +292,7 @@ Kiss.prototype.lookupFilename = function* (pathname) {
  */
 
 Kiss.prototype.pushDependencies = function* (context, pathname, type, body) {
+  assert(typeof pathname === 'string')
   assert(typeof body === 'string')
 
   // js
@@ -409,9 +409,9 @@ Kiss.prototype.hidden = function (val) {
 Kiss.prototype.priority = function (stats) {
   // remove the charset or anything
   switch (stats.ext) {
-    case 'text/html': return 3
-    case 'text/css': return 4
-    case 'text/js': return 5
+    case 'html': return 3
+    case 'css': return 4
+    case 'js': return 5
   }
   return 7
 }
