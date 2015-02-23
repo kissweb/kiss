@@ -91,10 +91,6 @@ And to run:
 kiss .
 ```
 
-Note that, by default, KISS uses a self-signed certificate.
-This is required as many browsers do not support HTTP2 without SSL.
-Acknowledge this from your browser to continue working.
-
 Type the following for more information:
 
 ```bash
