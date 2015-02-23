@@ -119,15 +119,58 @@ kiss --help
 
 ## JS API
 
-### var server = new Kiss(options)
+### var server = new Kiss([root], options)
 
-### server.mount([prefix], folder)
+Create a new KISS instance.
+
+```js
+var KISS = require('kiss')
+var server = new KISS('public', {
+  cacheControl: '1 year'
+})
+```
+
+The `root` option is a shortcut for `server.mount(root)`.
+
+### app.use(server)
+
+You can use each instance:
+
+```js
+app.use(server)
+```
+
+### server.mount([prefix="/"], folder)
+
+Mount a server path.
+For example:
+
+- `.mount('public')` -> `GET /index.html` -> `public/index.html`
+- `.mount('/something', 'public')` -> `GET /something/index.html` -> `public/index.html`
+
+You never want to have more than a single instance of KISS on a server.
+By mounting multiple directories at once,
+
+Folders resolve to the current working directory.
 
 ### server.etag(fn)
 
+Add a custom ETag function.
+By default, the [etag](https://github.com/jshttp/etag) module is used.
+Function signature is `stats => <etag>`.
+
 ### server.cacheControl(maxAge)
 
+Change the cache control header,
+which defaults to `public, max-age=<1 year>`.
+`maxAge` could either be a time in `ms` or a time string parsed using the [ms](https://github.com/rauchg/ms.js) module.
+
 ### server.hidden(enable)
+
+If hidden directories are supported,
+paths whose fragments begin with `.` are allowed.
+Instead of enabling this option,
+you should mount on paths like `server.mount('/.git', '.git')`
 
 [gitter-image]: https://badges.gitter.im/jonathanong/kiss.png
 [gitter-url]: https://gitter.im/jonathanong/kiss

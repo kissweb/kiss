@@ -15,12 +15,18 @@ const ms = require('ms')
 module.exports = Kiss
 
 function Kiss(options) {
+  if (typeof options === 'string') {
+    let root = options
+    options = options || Object.create(null)
+    options.root = root
+  }
   if (!(this instanceof Kiss)) return new Kiss(options)
 
-  this.options = options || Object.create(null)
-  if (this.options.cacheControl !== undefined) this.cacheControl(this.options.cacheControl)
-  if (typeof this.options.etag === 'function') this.etag(this.options.etag)
-  if (this.options.hidden !== undefined) this.hidden(this.options.hidden)
+  options = this.options = Object.create(options || null)
+  if (options.cacheControl !== undefined) this.cacheControl(options.cacheControl)
+  if (typeof options.etag === 'function') this.etag(options.etag)
+  if (options.hidden !== undefined) this.hidden(options.hidden)
+  if (typeof options.root === 'string') this.mount(options.root)
 
   this._folders = []
   this._middleware = []
