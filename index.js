@@ -71,7 +71,7 @@ Kiss.prototype.serveDependencies = function* (context) {
   // not a supported dependency type
   let req = context.request
   let res = context.response
-  let type = res.is('html', 'css' /*, 'js' */)
+  let type = res.is('html', 'css', 'js')
   if (!type) return
 
   // buffer the response

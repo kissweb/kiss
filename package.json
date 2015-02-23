@@ -29,7 +29,7 @@
   },
   "scripts": {
     "lint": "standardberry index.js",
-    "test": "mocha",
+    "test": "mocha --bail",
     "test-cov": "istanbul cover node_modules/mocha/bin/_mocha -- --reporter dot",
     "test-travis": "istanbul cover node_modules/mocha/bin/_mocha --report lcovonly -- --reporter dot"
   },

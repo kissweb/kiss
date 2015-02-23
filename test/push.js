@@ -40,9 +40,7 @@ agent.on('push', function (stream) {
 
 describe('HTML Import', function () {
   before(function () {
-    var app = koa()
-    app.use(serve().mount(fixture('html-import')))
-    fn = app.callback()
+    createServer('html-import')
   })
 
   it('should push the dependency', function (done) {
@@ -57,9 +55,7 @@ describe('HTML Import', function () {
 
 describe('HTML stylesheet', function () {
   before(function () {
-    var app = koa()
-    app.use(serve().mount(fixture('html-stylesheet')))
-    fn = app.callback()
+    createServer('html-stylesheet')
   })
 
   it('should push the dependency', function (done) {
@@ -71,6 +67,60 @@ describe('HTML stylesheet', function () {
     assertNoStream('/query.html', done)
   })
 })
+
+describe('HTML script', function () {
+  before(function () {
+    createServer('html-script')
+  })
+
+  it('should push the dependency', function (done) {
+    assertStream('/index.js', /application\/javascript/, done)
+    request('/', done)
+  })
+})
+
+describe('HTML module', function () {
+  before(function () {
+    createServer('html-module')
+  })
+
+  it('should push the dependency', function (done) {
+    assertStream('/index.js', /application\/javascript/, done)
+    request('/', done)
+  })
+})
+
+describe('JS module', function () {
+  before(function () {
+    createServer('js-module')
+  })
+
+  it('should push the dependency', function (done) {
+    assertStream('/x.js', /application\/javascript/, done)
+    request('/index.js', done)
+  })
+})
+
+describe('CSS import', function () {
+  before(function () {
+    createServer('css-import')
+  })
+
+  it('should push the dependency', function (done) {
+    assertStream('/x.css', /text\/css/, done)
+    request('/index.css', done)
+  })
+
+  it('should not push imports with media', function (done) {
+    assertNoStream('/media.css', done)
+  })
+})
+
+function createServer(name) {
+  var app = koa()
+  app.use(serve().mount(fixture(name)))
+  fn = app.callback()
+}
 
 function assertNoStream(path, done) {
   agent.on('push', onpush)
