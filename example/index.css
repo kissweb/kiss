@@ -1,0 +1,14 @@
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+section {
+  padding: 0 20px;
+}
+
+h1.blink {
+  color: red;
+}
