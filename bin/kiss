@@ -16,14 +16,12 @@ let serve = require('..')()
 serve.mount(path.resolve(program.args[0] || ''))
 app.use(serve)
 
+let options = require('spdy-keys')
 let spdy = require('spdy')
 let port = program.port || 4400
 let fn = app.callback()
 
-module.exports = spdy.createServer({
-  plain: true,
-  ssl: false,
-})
+module.exports = spdy.createServer(options)
 .on('request', fn)
 .listen(port, function (err) {
   if (err) throw err
