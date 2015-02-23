@@ -37,13 +37,13 @@ JS:
 - `import ''` - module imports
 
 Dependencies that are conditional are not pushed automatically.
-If the client has a good change of not using the dependency at all,
+If the client has a good chance of not using the dependency at all,
 extra latency is considered acceptable.
 Some examples are:
 
-- CSS `url()` dependencies, many of which are wrapped in `@media` or `@support` queries.
+- CSS `url()` dependencies, many of which are wrapped in `@media` or `@support` queries or conditional selectors.
 - CSS dependences with media queries including `<link rel="stylesheet" media="">` and `@import "" screen;`.
-- JS `System.import()`s, which are always dynamic and conditional
+- JS `System.import()`s, which are always dynamically loaded.
 
 ## Caveats
 

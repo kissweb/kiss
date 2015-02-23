@@ -3,6 +3,7 @@
  * Push multiple files at a time.
  */
 
+var PassThrough = require('readable-stream/passthrough')
 var assert = require('assert')
 var spdy = require('spdy')
 var http = require('http')
@@ -36,6 +37,45 @@ describe('this.body=', function () {
     app.use(function* (next) {
       this.type = 'css'
       this.body = '@import "index.css";'
+    })
+    fn = app.callback()
+
+    var streams = []
+
+    agent.on('push', function onpush(stream) {
+      var length = streams.push(stream)
+      assert(length <= 2)
+      if (length === 1) return
+
+      agent.removeListener('push', onpush)
+
+      var urls = streams.map(function (stream) {
+        return stream.url
+      })
+
+      assert(~urls.indexOf('/index.css'))
+      assert(~urls.indexOf('/a.css'))
+      done()
+    })
+
+    http.request({
+      path: '/',
+      agent: agent
+    }).on('response', function (response) {
+      assert.equal(response.statusCode, 200)
+      assert(/text\/css/.test(response.headers['content-type']))
+      response.resume()
+      response.on('error', done)
+    }).on('error', done).end()
+  })
+
+  it('should support stream bodies', function (done) {
+    var app = koa()
+    app.use(serve(fixture()))
+    app.use(function* (next) {
+      this.type = 'css'
+      var stream = this.body = new PassThrough()
+      stream.end('@import "index.css";')
     })
     fn = app.callback()
 
