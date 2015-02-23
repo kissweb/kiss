@@ -14,8 +14,9 @@ This server seamlessly HTTP/2 pushes all your files dependencies!
 You never have to explicitly `PUSH` assets to the client (unless you want to).
 
 KISS hopes to simplify web development further by being extensible.
-By integrating polyfilling and transpilation and, eventually, package management,
+By using plugins for polyfilling, transpilation and, eventually, package management,
 your build system will eventually become nonexistent.
+Your server is the new build system.
 
 ## Supported Dependency Types
 
