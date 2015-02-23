@@ -76,6 +76,22 @@ server.mount('/client', __dirname + '/client')
 app.use(server)
 ```
 
+You can also view the example by cloning this repo and running `./bin/kiss example`:
+
+```bash
+git clone git://github.com/kissweb/kiss
+cd kiss
+./bin/kiss example
+```
+
+Then opening the page in your browser:
+
+```bash
+open https://127.0.0.1:4000/
+```
+
+Be sure to accept the self-signed certificate!
+
 ## kiss(1)
 
 KISS comes with a CLI for serving with a hope of replacing [serve](https://www.npmjs.com/package/serve).
