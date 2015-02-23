@@ -14,23 +14,28 @@ const ms = require('ms')
 
 module.exports = Kiss
 
-function Kiss(options) {
+/**
+ *   let fn = Kiss(options)
+ *   app.use(fn)
+ *
+ * Not a typical middleware function :D
+ */
+
+function Kiss(options, _options) {
   if (typeof options === 'string') {
     let root = options
-    options = options || Object.create(null)
+    options = _options || Object.create(null)
     options.root = root
   }
   if (!(this instanceof Kiss)) return new Kiss(options)
+
+  this._folders = []
 
   options = this.options = Object.create(options || null)
   if (options.cacheControl !== undefined) this.cacheControl(options.cacheControl)
   if (typeof options.etag === 'function') this.etag(options.etag)
   if (options.hidden !== undefined) this.hidden(options.hidden)
   if (typeof options.root === 'string') this.mount(options.root)
-
-  this._folders = []
-  this._middleware = []
-  this._transforms = []
 }
 
 /**
@@ -60,7 +65,57 @@ Kiss.prototype.call = function* (context, next) {
   // try to serve the response
   let served = yield* this.serve(context, next)
   // push the dependencies if the response was served
-  if (served !== false) yield* this.serveDependencies(context, next)
+  if (served) yield* this.serveDependencies(context, next)
+}
+
+/**
+ * Serve a file as the response to the request.
+ * Note: assumes you're using your own compression middleware,
+ * so be sure to `app.use(require('koa-compress')())`!
+ * TODO: maybe handle compression here
+ *
+ * @returns {Boolean} Pushable - whether to attempt to push dependencies
+ */
+
+Kiss.prototype.serve = function* (context) {
+  let req = context.request
+  let pathname = req.path
+  let stats = yield* this.lookup(context, '/', pathname)
+  if (!stats) return
+
+  let res = context.response
+  switch (req.method) {
+    case 'HEAD':
+    case 'GET':
+      break
+    case 'OPTIONS':
+      res.set('Allow', 'OPTIONS,HEAD,GET')
+      res.status = 204
+      return
+    default:
+      res.set('Allow', 'OPTIONS,HEAD,GET')
+      res.status = 405
+      return
+  }
+
+  res.status = 200
+  if (stats.mtime instanceof Date) res.lastModified = stats.mtime
+  if (typeof stats.size === 'number') res.length = stats.size
+  res.type = stats.type || path.extname(stats.pathname)
+  res.etag = yield this._etag(stats)
+  res.set('Cache-Control', this._cacheControl)
+
+  // do we push dependencies on 304s?
+  let fresh = req.fresh
+  if (fresh) return res.status = 304
+
+  if (req.method === 'HEAD') return
+
+  assert('body' in stats || 'filename' in stats)
+  res.body = 'body' in stats
+    ? stats.body
+    : fs.createReadStream(stats.filename)
+  return true
 }
 
 /**
@@ -86,49 +141,64 @@ Kiss.prototype.serveDependencies = function* (context) {
 }
 
 /**
- * Serve a file as the response to the request.
- * Note: assumes you're using your own compression middleware.
- * TODO: maybe handle compression here
+ * Push dependencies.
  */
 
-Kiss.prototype.serve = function* (context) {
-  let req = context.request
-  let pathname = req.path
-  let stats = yield* this.lookup(context, '/', pathname)
-  if (!stats) return false
+Kiss.prototype.pushDependencies = function* (context, pathname, type, body) {
+  assert(typeof pathname === 'string')
+  assert(typeof body === 'string')
 
-  let res = context.response
-  switch (req.method) {
-    case 'HEAD':
-    case 'GET':
-      break
-    case 'OPTIONS':
-      res.set('Allow', 'OPTIONS,HEAD,GET')
-      res.status = 204
-      return
-    default:
-      res.set('Allow', 'OPTIONS,HEAD,GET')
-      res.status = 405
-      return
-  }
-
-  res.status = 200
-  if (stats.mtime instanceof Date) res.lastModified = stats.mtime
-  if (typeof stats.size === 'number') res.length = stats.size
-  res.type = stats.type || path.extname(stats.pathname)
-  res.etag = yield this._etag(stats)
-  res.set('Cache-Control', this._cacheControl)
-
-  let fresh = req.fresh
-  if (req.method === 'HEAD') {
-    if (fresh) res.status = 304
+  // js
+  if (type === 'js') {
+    let deps = yield parse.js(body)
+    if (!deps.length) return
+    yield deps.map(function* (name) {
+      let stats = yield* this.lookup(context, pathname, name)
+      if (stats) yield* this.spdyPush(context, stats)
+    }, this)
     return
   }
 
-  if (fresh) return res.status = 304
-  res.body = 'body' in stats
-    ? stats.body
-    : fs.createReadStream(stats.filename)
+  // css
+  if (type === 'css') {
+    let deps = yield parse.css(body)
+    // note: we do not push urls() because they are conditional
+    if (!deps.imports) return
+    yield deps.imports.map(function* (dep) {
+      // don't push dependencies with media queries as they are conditional
+      if (dep.media) return
+      let stats = yield* this.lookup(context, pathname, dep.path)
+      if (stats) yield* this.spdyPush(context, stats)
+    }, this)
+    return
+  }
+
+  // html
+  assert(type === 'html')
+  let deps = yield parse.html(body)
+  if (!deps.length) return
+  yield deps.map(function* (node) {
+    let stats
+    switch (node.type) {
+      // TODO: parse inline module dependencies
+      case 'module':
+      case 'script':
+        if (node.inline) return
+        stats = yield* this.lookup(context, pathname, node.path)
+        break
+      // TODO: parse inline style imports
+      case 'style': return
+      case 'stylesheet':
+        // don't push style sheets with media queries as they are conditional
+        if (node.attrs.media) return
+        stats = yield* this.lookup(context, pathname, node.path)
+        break
+      case 'import':
+        stats = yield* this.lookup(context, pathname, node.path)
+        break
+    }
+    if (stats) yield* this.spdyPush(context, stats)
+  }, this)
 }
 
 /**
@@ -189,74 +259,10 @@ Kiss.prototype.spdyPush = function* (context, stats) {
 }
 
 /**
- * Mount a path as a static server.
- * Like Express's `.use()`, except `.use()` in this instance
- * will be reserved for middleware.
- */
-
-Kiss.prototype.mount = function (prefix, folder) {
-  if (typeof folder !== 'string') {
-    // no prefix
-    folder = prefix
-    prefix = '/'
-  }
-
-  assert(prefix[0] === '/', 'Mounted paths must begin with a `/`.')
-  if (!/\/$/.test(prefix)) prefix += '/'
-
-  this._folders.push([prefix, path.resolve(folder)])
-  return this
-}
-
-/**
- * Use middleware for this server.
- */
-
-Kiss.prototype.use = function (fn) {
-  this._middleware.push(fn)
-  return this
-}
-
-/**
- * Transform files.
- */
-
-/* istanbul ignore next */
-Kiss.prototype.transform = function () {
-  throw new Error('Not implemented.')
-}
-
-/**
- * Alias a path as another path.
- * Essentially a symlink.
- * Should support both files and folders.
- */
-
-/* istanbul ignore next */
-Kiss.prototype.alias = function () {
-  throw new Error('Not implemented.')
-}
-
-/**
- * Define a custom, virtual path.
- * Ex. kiss.define('/polyfill.js', (context, next) -> [stats])
- */
-
-/* istanbul ignore next */
-Kiss.prototype.define = function () {
-  throw new Error('Not implemented.')
-}
-
-/**
  * Lookup function.
  */
 
 Kiss.prototype.lookup = function* (context, basepath, pathname) {
-  for (let fn of this._middleware) {
-    let stats = yield fn.call(this, basepath, pathname)
-    if (stats) return stats
-  }
-
   // if all middleware fails, use local file lookups
   // it does not support absolute URLs, obviously
   if (~pathname.indexOf('://') || !pathname.indexOf('//')) return
@@ -294,65 +300,62 @@ Kiss.prototype.lookupFilename = function* (pathname) {
 }
 
 /**
- * Push dependencies.
+ * Mount a path as a static server.
+ * Like Express's `.use()`, except `.use()` in this instance
+ * will be reserved for middleware.
  */
 
-Kiss.prototype.pushDependencies = function* (context, pathname, type, body) {
-  assert(typeof pathname === 'string')
-  assert(typeof body === 'string')
-
-  // js
-  if (type === 'js') {
-    let deps = yield parse.js(body)
-    if (!deps.length) return
-    yield deps.map(function* (name) {
-      let stats = yield* this.lookup(context, pathname, name)
-      if (stats) yield* this.spdyPush(context, stats)
-    }, this)
-    return
+Kiss.prototype.mount = function (prefix, folder) {
+  if (typeof folder !== 'string') {
+    // no prefix
+    folder = prefix
+    prefix = '/'
   }
 
-  // css
-  if (type === 'css') {
-    let deps = yield parse.css(body)
-    // note: we do not push urls() because they are conditional
-    if (!deps.imports) return
-    yield deps.imports.map(function* (dep) {
-      // don't push dependencies with media queries as they are conditional
-      if (dep.media) return
-      let stats = yield* this.lookup(context, pathname, dep.path)
-      if (stats) yield* this.spdyPush(context, stats)
-    }, this)
-    return
-  }
+  assert(prefix[0] === '/', 'Mounted paths must begin with a `/`.')
+  if (!/\/$/.test(prefix)) prefix += '/'
 
-  assert(type === 'html')
+  this._folders.push([prefix, path.resolve(folder)])
+  return this
+}
 
-  // html
-  let deps = yield parse.html(body)
-  if (!deps.length) return
-  yield deps.map(function* (node) {
-    let stats
-    switch (node.type) {
-      // TODO: parse inline module dependencies
-      case 'module':
-      case 'script':
-        if (node.inline) return
-        stats = yield* this.lookup(context, pathname, node.path)
-        break
-      // TODO: parse inline style imports
-      case 'style': return
-      case 'stylesheet':
-        // don't push style sheets with media queries as they are conditional
-        if (node.attrs.media) return
-        stats = yield* this.lookup(context, pathname, node.path)
-        break
-      case 'import':
-        stats = yield* this.lookup(context, pathname, node.path)
-        break
-    }
-    if (stats) yield* this.spdyPush(context, stats)
-  }, this)
+/**
+ * Use middleware for this server.
+ */
+
+/* istanbul ignore next */
+Kiss.prototype.use = function () {
+  throw new Error('Not implemented.')
+}
+
+/**
+ * Transform files.
+ */
+
+/* istanbul ignore next */
+Kiss.prototype.transform = function () {
+  throw new Error('Not implemented.')
+}
+
+/**
+ * Alias a path as another path.
+ * Essentially a symlink.
+ * Should support both files and folders.
+ */
+
+/* istanbul ignore next */
+Kiss.prototype.alias = function () {
+  throw new Error('Not implemented.')
+}
+
+/**
+ * Define a custom, virtual path.
+ * Ex. kiss.define('/polyfill.js', (context, next) -> [stats])
+ */
+
+/* istanbul ignore next */
+Kiss.prototype.define = function () {
+  throw new Error('Not implemented.')
 }
 
 /**
