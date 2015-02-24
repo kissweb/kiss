@@ -2,5 +2,5 @@ node_js:
 - "iojs"
 language: node_js
 sudo: false
-script: "npm run-script test-travis"
+script: "npm run-script test-ci"
 after_script: "npm install coveralls@2 && cat ./coverage/lcov.info | coveralls"
