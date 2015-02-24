@@ -173,18 +173,18 @@ paths whose fragments begin with `.` are allowed.
 Instead of enabling this option,
 you should mount on paths like `server.mount('/.git', '.git')`
 
-[gitter-image]: https://badges.gitter.im/jonathanong/kiss.png
-[gitter-url]: https://gitter.im/jonathanong/kiss
+[gitter-image]: https://badges.gitter.im/kissweb/kiss.png
+[gitter-url]: https://gitter.im/kissweb/kiss
 [npm-image]: https://img.shields.io/npm/v/kiss.svg?style=flat-square
 [npm-url]: https://npmjs.org/package/kiss
-[github-tag]: http://img.shields.io/github/tag/jonathanong/kiss.svg?style=flat-square
-[github-url]: https://github.com/jonathanong/kiss/tags
-[travis-image]: https://img.shields.io/travis/jonathanong/kiss.svg?style=flat-square
-[travis-url]: https://travis-ci.org/jonathanong/kiss
-[coveralls-image]: https://img.shields.io/coveralls/jonathanong/kiss.svg?style=flat-square
-[coveralls-url]: https://coveralls.io/r/jonathanong/kiss
-[david-image]: http://img.shields.io/david/jonathanong/kiss.svg?style=flat-square
-[david-url]: https://david-dm.org/jonathanong/kiss
+[github-tag]: http://img.shields.io/github/tag/kissweb/kiss.svg?style=flat-square
+[github-url]: https://github.com/kissweb/kiss/tags
+[travis-image]: https://img.shields.io/travis/kissweb/kiss.svg?style=flat-square
+[travis-url]: https://travis-ci.org/kissweb/kiss
+[coveralls-image]: https://img.shields.io/coveralls/kissweb/kiss.svg?style=flat-square
+[coveralls-url]: https://coveralls.io/r/kissweb/kiss
+[david-image]: http://img.shields.io/david/kissweb/kiss.svg?style=flat-square
+[david-url]: https://david-dm.org/kissweb/kiss
 [license-image]: http://img.shields.io/npm/l/kiss.svg?style=flat-square
 [license-url]: LICENSE
 [downloads-image]: http://img.shields.io/npm/dm/kiss.svg?style=flat-square
