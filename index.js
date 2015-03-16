@@ -150,8 +150,8 @@ Kiss.prototype.pushDependencies = function* (context, pathname, type, body) {
 
   // js
   if (type === 'js') {
-    let deps = yield parse.js(body)
-    if (!deps.length) return
+    let deps = yield parse.js(body).catch(onerror)
+    if (!deps || !deps.length) return
     yield deps.map(function* (name) {
       let stats = yield* this.lookup(context, pathname, name)
       if (stats) yield* this.spdyPush(context, stats)
@@ -161,9 +161,9 @@ Kiss.prototype.pushDependencies = function* (context, pathname, type, body) {
 
   // css
   if (type === 'css') {
-    let deps = yield parse.css(body)
+    let deps = yield parse.css(body).catch(onerror)
     // note: we do not push urls() because they are conditional
-    if (!deps.imports) return
+    if (!deps || !deps.imports) return
     yield deps.imports.map(function* (dep) {
       // don't push dependencies with media queries as they are conditional
       if (dep.media) return
@@ -175,8 +175,8 @@ Kiss.prototype.pushDependencies = function* (context, pathname, type, body) {
 
   // html
   assert(type === 'html')
-  let deps = yield parse.html(body)
-  if (!deps.length) return
+  let deps = yield parse.html(body).catch(onerror)
+  if (!deps || !deps.length) return
   yield deps.map(function* (node) {
     let stats
     switch (node.type) {
@@ -453,4 +453,8 @@ function* bodyToString(body) {
   if (body._readableState) return yield rawBody(body, { encoding: 'utf8' })
   /* istanbul ignore next */
   throw new Error('Could not convert body to string.')
+}
+
+function onerror(error) {
+  console.error(err.stack)
 }

@@ -116,6 +116,17 @@ describe('CSS import', function () {
   })
 })
 
+describe('Bad CSS', function () {
+  before(function () {
+    createServer('css-error')
+  })
+
+  it('should not crash on CSS syntax errors', function (done) {
+    assertStream('/bad.css', /text\/css/, done)
+    request('/index.css', done)
+  })
+})
+
 function createServer(name) {
   var app = koa()
   app.use(serve().mount(fixture(name)))
