@@ -26,14 +26,14 @@
     "istanbul-harmony": "0",
     "mocha": "2",
     "readable-stream": "^1.0.33",
-    "standardberry": "^1.0.0",
+    "standardberry": "2",
     "supertest": "0"
   },
   "scripts": {
     "lint": "standardberry index.js",
     "test": "mocha --bail",
     "test-cov": "istanbul cover node_modules/mocha/bin/_mocha -- --reporter dot",
-    "test-ci": "istanbul cover node_modules/mocha/bin/_mocha --report lcovonly -- --reporter dot"
+    "test-ci": "npm run lint && istanbul cover node_modules/mocha/bin/_mocha --report lcovonly -- --reporter dot"
   },
   "keywords": [
     "koa",

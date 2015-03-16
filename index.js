@@ -214,7 +214,7 @@ Kiss.prototype.spdyPush = function* (context, stats) {
     headers: {
       'cache-control': this._cacheControl,
       'etag': yield this._etag(stats),
-    }
+    },
   }
 
   if (stats.mtime instanceof Date)
@@ -236,7 +236,7 @@ Kiss.prototype.spdyPush = function* (context, stats) {
   assert('body' in options || 'filename' in options)
 
   let promises = [
-    spdy(context.res).push(options)
+    spdy(context.res).push(options),
   ]
 
   // push this file's dependencies
@@ -315,7 +315,10 @@ Kiss.prototype.mount = function (prefix, folder) {
   assert(prefix[0] === '/', 'Mounted paths must begin with a `/`.')
   if (!/\/$/.test(prefix)) prefix += '/'
 
-  this._folders.push([prefix, path.resolve(folder)])
+  this._folders.push([
+    prefix,
+    path.resolve(folder),
+  ])
   return this
 }
 
@@ -378,7 +381,7 @@ Kiss.prototype.etag = function (fn) {
 
 Kiss.prototype.etag(function (stats) {
   return etag(stats, {
-    weak: true
+    weak: true,
   })
 })
 
@@ -450,11 +453,11 @@ function hasLeadingDot(x) {
 function* bodyToString(body) {
   if (typeof body === 'string') return body
   if (Buffer.isBuffer(body)) return body.toString()
-  if (body._readableState) return yield rawBody(body, { encoding: 'utf8' })
+  if (body._readableState) return yield rawBody(body, { encoding: 'utf8', })
   /* istanbul ignore next */
   throw new Error('Could not convert body to string.')
 }
 
-function onerror(error) {
+function onerror(err) {
   console.error(err.stack)
 }
