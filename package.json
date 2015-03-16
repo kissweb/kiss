@@ -44,7 +44,8 @@
     "push"
   ],
   "files": [
-    "index.js"
+    "index.js",
+    "bin/kiss"
   ],
   "bin": "bin/kiss"
 }
