@@ -461,6 +461,7 @@ function* bodyToString(body) {
   throw new Error('Could not convert body to string.')
 }
 
+/* istanbul ignore next */
 function onerror(err) {
   console.error(err.stack)
 }
