@@ -37,6 +37,7 @@ describe('this.body=', function () {
     app.use(function* (next) {
       this.type = 'css'
       this.body = '@import "index.css";'
+      this.etag = 'asdf'
     })
     fn = app.callback()
 
@@ -67,6 +68,42 @@ describe('this.body=', function () {
       response.resume()
       response.on('error', done)
     }).on('error', done).end()
+  })
+
+  it('it should not push when there is no body', function (done) {
+    var app = koa()
+    app.use(serve(fixture()))
+    app.use(function* (next) {
+      this.type = 'css'
+      this.body = '@import "index.css";'
+      this.etag = 'asdf'
+      if (this.fresh) this.status = 304
+    })
+    fn = app.callback()
+
+    var streams = []
+
+    agent.on('push', throwError)
+
+    http.request({
+      path: '/',
+      agent: agent,
+      headers: {
+        'if-none-match': '"asdf"'
+      }
+    }).on('response', function (response) {
+      assert.equal(response.statusCode, 304)
+      response.resume()
+      response.on('error', done)
+      response.on('end', function () {
+        agent.removeListener('push', throwError)
+        done()
+      })
+    }).on('error', done).end()
+
+    function throwError() {
+      throw new Error('boom')
+    }
   })
 
   it('should support stream bodies', function (done) {

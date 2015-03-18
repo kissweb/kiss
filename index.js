@@ -63,9 +63,9 @@ Kiss.prototype.call = function* (context, next) {
   if (res.body || res.status !== 404) return
 
   // try to serve the response
-  let served = yield* this.serve(context, next)
+  yield* this.serve(context, next)
   // push the dependencies if the response was served
-  if (served) yield* this.serveDependencies(context, next)
+  if (res.body != null) yield* this.serveDependencies(context, next)
 }
 
 /**
@@ -115,7 +115,6 @@ Kiss.prototype.serve = function* (context) {
   res.body = 'body' in stats
     ? stats.body
     : fs.createReadStream(stats.filename)
-  return true
 }
 
 /**
@@ -132,6 +131,10 @@ Kiss.prototype.serveDependencies = function* (context) {
   // not a supported dependency type
   let req = context.request
   let res = context.response
+  // no body, just in case
+  if (res.body == null) return
+
+  // supported body types
   let type = res.is('html', 'css', 'js')
   if (!type) return
 
