@@ -65,7 +65,7 @@ Kiss.prototype.call = function* (context, next) {
   // try to serve the response
   let served = yield* this.serve(context, next)
   // push the dependencies if the response was served
-  if (served) yield* this.serveDependencies(context, next)
+  if (served && res.body) yield* this.serveDependencies(context, next)
 }
 
 /**
