@@ -9,6 +9,10 @@ var Serve = require('..')
 
 var app = koa()
 
+app.on('error', function (err) {
+  console.error(err.stack)
+})
+
 app.use(Serve(path.join(__dirname, 'fixtures-lookup')))
 app.use(function* (next) {
   if (this.path === '/test') return this.status = 204
