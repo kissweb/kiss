@@ -130,6 +130,9 @@ describe('Bad CSS', function () {
 function createServer(name) {
   var app = koa()
   app.use(serve().mount(fixture(name)))
+  app.on('error', function (err) {
+    console.error(err.stack)
+  })
   fn = app.callback()
 }
 
