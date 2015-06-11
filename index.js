@@ -456,7 +456,7 @@ function hasLeadingDot(x) {
 function* bodyToString(body) {
   if (typeof body === 'string') return body
   if (Buffer.isBuffer(body)) return body.toString()
-  if (body._readableState) return yield rawBody(body, { encoding: 'utf8', })
+  if (body._readableState) return yield rawBody(body, { encoding: 'utf8' })
   /* istanbul ignore next */
   throw new Error('Could not convert body to string.')
 }
