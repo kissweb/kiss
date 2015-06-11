@@ -90,7 +90,7 @@ describe('HTML module', function () {
   })
 })
 
-describe.skip('JS module', function () {
+describe('JS module', function () {
   before(function () {
     createServer('js-module')
   })
