@@ -7,7 +7,6 @@
 [![Dependency Status][david-image]][david-url]
 [![License][license-image]][license-url]
 [![Downloads][downloads-image]][downloads-url]
-[![Gittip][gittip-image]][gittip-url]
 
 Keeping web development simple with a Koa-based HTTP/2 static server.
 This server seamlessly HTTP/2 pushes all your files dependencies!
