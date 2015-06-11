@@ -19,7 +19,9 @@ app.use(function* (next) {
   yield* next
 })
 
-app.on('error', function () {})
+app.on('error', function (err) {
+  console.error(err.stack)
+})
 
 var server = app.callback()
 
