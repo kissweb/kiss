@@ -26,7 +26,7 @@
     "co": "^4.4.0",
     "istanbul-harmony": "0",
     "mocha": "2",
-    "readable-stream": "^1.0.33",
+    "readable-stream": "^2.0.0",
     "standardberry": "^3.4.0",
     "supertest": "^1.0.1"
   },
