@@ -25,7 +25,7 @@
   "devDependencies": {
     "co": "^4.4.0",
     "istanbul-harmony": "0",
-    "mocha": "2",
+    "mocha": "2.4.1",
     "readable-stream": "^2.0.0",
     "standardberry": "^3.4.0",
     "supertest": "^1.0.1"
